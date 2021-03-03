@@ -137,7 +137,7 @@ class KNearestNeighbor(object):
         dists = np.sqrt(np.sum(diff**2, 2))
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-        return dists
+        return dists 
 
     def predict_labels(self, dists, k=1):
         """
