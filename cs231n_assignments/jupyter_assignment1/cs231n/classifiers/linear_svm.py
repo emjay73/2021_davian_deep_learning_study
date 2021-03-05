@@ -28,22 +28,25 @@ def svm_loss_naive(W, X, y, reg):
     num_train = X.shape[0]
     loss = 0.0
     for i in range(num_train):
-        scores = X[i].dot(W)
+        scores = X[i].dot(W) # n_train x n_class
         correct_class_score = scores[y[i]]
         for j in range(num_classes):
             if j == y[i]:
                 continue
             margin = scores[j] - correct_class_score + 1 # note delta = 1
             if margin > 0:
-                loss += margin
+                loss        += margin                
+                dW[:, y[i]] += -X[i].T # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                
+                dW[:, j]    += X[i].T  # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     # Right now the loss is a sum over all training examples, but we want it
     # to be an average instead so we divide by num_train.
     loss /= num_train
-
+    dW /= num_train # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    
     # Add regularization to the loss.
     loss += reg * np.sum(W * W)
-
+    dW += reg * np.sum(2*W) # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     #############################################################################
     # TODO:                                                                     #
     # Compute the gradient of the loss function and store it dW.                #
@@ -54,7 +57,7 @@ def svm_loss_naive(W, X, y, reg):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    # up!
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     
@@ -77,9 +80,15 @@ def svm_loss_vectorized(W, X, y, reg):
     # result in loss.                                                           #
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    n_data = X.shape[0]
+    s = np.dot(X, W) # score
+    s_gt = np.expand_dims(s[np.arange(n_data), y], 1) # gt score    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!           
+    l = np.maximum( s - s_gt  + 1 , 0)                              # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!           
+    l[np.arange(n_data), y] = 0
 
-    pass
+    loss = np.sum( l ) / n_data
 
+    loss += reg* np.sum(W * W)
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
     #############################################################################
@@ -93,7 +102,29 @@ def svm_loss_vectorized(W, X, y, reg):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+
+    # loss[i] => sum over J {s[i, j] - s[i, y[i]] + 1}  NOTE. j is in J{s[i, j] > s[i, y[i]] - 1, j!= y[i]}. otherwise, loss as j is 0
+    # loss[i] / dW[:, j] =  (ds[i, j]/dW[:, j]) * (dloss[i]/ds[i, j])
+    # dloss[i] / s[i, j] => 1     when j!=y[i] 
+    #                    => -#J   when j==y[i]
+    # (ds[i, j]/dW[:, j]) = d(X[i, :]W[:, j])/dW[:, j] = X[i, :].T
+    # therefore, dloss[i]/dW[:, j] =   1*X[i, :].T when j!=y[i]
+    #                              = -#J*X[i, :].T when j==y[i]
+
+    # let's expand j
+    # dloss[i]/dW =   X[i, :].T @ [row vector, 1 when j!=y[i], -#J*X[i, :].T when j==y[i]] 
+
+    # let's expand i to N
+    # dloss[i]/dW =   X.T @ [[1 when j!=y[i], -#J*X[i, :].T when j==y[i]] ... n times]
+
+     # Compute gradient
+    l[l > 0] = 1 # incorrect class mask # (500, 10)
+    valid_l_count = l.sum(axis=1) # # (500, ) # num(incorrect class) == num(class with loss)
+    l[np.arange(n_data),y ] -= valid_l_count # (500, )
+    dW = (X.T).dot(l) / n_data
+
+    # Regularization gradient
+    dW += reg * 2 * W
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
